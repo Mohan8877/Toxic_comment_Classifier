@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+streamlit
+tensorflow
+scikit-learn
+pandas
+numpy
+nltk
+spacy
+sqlalchemy
+psycopg2-binary
+python-dotenv
+pytest
+gunicorn
