@@ -1,37 +1,51 @@
+from __future__ import annotations
+
 import os
-from typing import Dict
+from typing import Any
 
 import numpy as np
-from tensorflow.keras.models import load_model
+import torch
+from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
 
-MODEL_PATH = os.environ.get('MODEL_PATH', 'models/toxic_model.keras')
-TOKENIZER_PATH = os.environ.get('TOKENIZER_PATH', 'models/tokenizer.pkl')
+from src.config import LABELS, MODEL_INPUT_LENGTH, MODEL_PATH, TOKENIZER_PATH
+from src.preprocessing import preprocess_text
 
 _model = None
-_tokenizer = None
 
 
-def load():
-    global _model, _tokenizer
-    if _model is None:
-        if os.path.exists(MODEL_PATH):
-            _model = load_model(MODEL_PATH)
+def load_model() -> Any:
+    global _model
+    if _model is None and os.path.exists(MODEL_PATH):
+        _model = DistilBertForSequenceClassification.from_pretrained(MODEL_PATH)
     return _model
 
 
-def predict_comment(tokenized_sequence) -> Dict[str, float]:
-    """Expect a padded token sequence (numpy array). Returns label probs."""
-    model = load()
+def _fallback_categories() -> dict[str, float]:
+    return {label: 0.0 for label in LABELS}
+
+
+def _encode_comment(comment: str):
+    text = preprocess_text(comment)
+    tokenizer = DistilBertTokenizerFast.from_pretrained(TOKENIZER_PATH)
+    return tokenizer(
+        text,
+        truncation=True,
+        padding="max_length",
+        max_length=MODEL_INPUT_LENGTH,
+        return_tensors="pt",
+    )
+
+
+def predict_comment(comment: str) -> dict[str, float]:
+    model = load_model()
     if model is None:
-        # stub: return zeros if model missing
-        return {
-            'toxic': 0.0,
-            'severe_toxic': 0.0,
-            'obscene': 0.0,
-            'threat': 0.0,
-            'insult': 0.0,
-            'identity_hate': 0.0,
-        }
-    probs = model.predict(np.array([tokenized_sequence]))[0]
-    labels = ['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']
-    return dict(zip(labels, probs.tolist()))
+        return _fallback_categories()
+
+    model.eval()
+    encodings = _encode_comment(comment)
+    with torch.no_grad():
+        logits = model(**encodings).logits[0]
+    probs = torch.sigmoid(logits).tolist()
+    if len(probs) != len(LABELS):
+        return _fallback_categories()
+    return {label: float(prob) for label, prob in zip(LABELS, probs)}

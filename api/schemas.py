@@ -1,5 +1,15 @@
-from pydantic import BaseModel
+from __future__ import annotations
+
 from typing import Dict
+
+from pydantic import BaseModel
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    uptime_seconds: float
+    model_loaded: bool
 
 
 class PredictRequest(BaseModel):
@@ -11,3 +21,4 @@ class PredictResponse(BaseModel):
     toxicity_score: float
     categories: Dict[str, float]
     moderation_action: str
+    model_version: str = "unknown"

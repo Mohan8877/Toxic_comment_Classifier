@@ -2,6 +2,9 @@ fastapi
 uvicorn[standard]
 streamlit
 tensorflow
+transformers
+torch
+sentencepiece
 scikit-learn
 pandas
 numpy

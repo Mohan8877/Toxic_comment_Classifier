@@ -1,42 +1,93 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import Dict
+from __future__ import annotations
 
-from src import preprocessing
-from src import predict as predict_module
+import logging
 
-app = FastAPI(title='Toxic Comment Classifier')
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
+from api.dependencies import require_api_key
+from api.schemas import HealthResponse, PredictRequest, PredictResponse
+from database.crud import create_prediction_record
+from database.session import SessionLocal, init_db
+from src.config import ALLOWED_ORIGINS, DEFAULT_API_HOST, DEFAULT_API_PORT, LOG_LEVEL
+from src.metrics import calculate_toxicity_score, determine_moderation_action, uptime_seconds
+from src.predict import load_model, predict_comment
+
+init_db()
+
+logging.basicConfig(level=getattr(logging, LOG_LEVEL.upper(), logging.INFO))
+logger = logging.getLogger("toxic_api")
+
+app = FastAPI(
+    title="Toxic Comment Classifier",
+    version="1.0.0",
+    description="Production-ready toxic comment moderation service using a Bi-LSTM classification model.",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS and ALLOWED_ORIGINS != ["*"] else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-class PredictRequest(BaseModel):
-    comment: str
+@app.on_event("startup")
+def startup_event() -> None:
+    load_model()
+    logger.info("API startup complete on %s:%s", DEFAULT_API_HOST, DEFAULT_API_PORT)
 
 
-class PredictResponse(BaseModel):
-    is_toxic: bool
-    toxicity_score: float
-    categories: Dict[str, float]
-    moderation_action: str
+@app.get("/", include_in_schema=False)
+def root() -> dict[str, str]:
+    return {"service": "toxic-comment-classifier", "status": "ok"}
 
 
-@app.post('/predict', response_model=PredictResponse)
-def predict(req: PredictRequest):
-    text = preprocessing.preprocess_text(req.comment)
-    # NOTE: tokenization/padding pipeline should go here; currently stubbed
-    # For now pass an all-zero sequence placeholder
-    seq = [0] * 200
-    categories = predict_module.predict_comment(seq)
-    toxicity_score = max(categories.values()) if categories else 0.0
+@app.get("/health", response_model=HealthResponse)
+def health_check() -> HealthResponse:
+    model_loaded = load_model() is not None
+    return HealthResponse(
+        status="ok",
+        service="toxic_comment_classifier_api",
+        uptime_seconds=uptime_seconds(),
+        model_loaded=model_loaded,
+    )
+
+
+@app.post("/predict", response_model=PredictResponse, dependencies=[Depends(require_api_key)])
+def predict(req: PredictRequest) -> PredictResponse:
+    categories = predict_comment(req.comment)
+    toxicity_score = calculate_toxicity_score(categories)
+    moderation_action = determine_moderation_action(toxicity_score)
     is_toxic = toxicity_score >= 0.5
-    if toxicity_score < 0.3:
-        action = 'allow'
-    elif toxicity_score < 0.75:
-        action = 'flag'
-    else:
-        action = 'hide_and_flag'
+
+    db: Session = SessionLocal()
+    try:
+        try:
+            create_prediction_record(
+                db,
+                comment_text=req.comment,
+                toxicity_score=toxicity_score,
+                categories=categories,
+                moderation_status=moderation_action,
+            )
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            logger.warning("Prediction persistence failed: %s", exc)
+    finally:
+        db.close()
+
     return PredictResponse(
         is_toxic=is_toxic,
         toxicity_score=toxicity_score,
         categories=categories,
-        moderation_action=action,
+        moderation_action=moderation_action,
+        model_version="bi_lstm_v1",
     )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("api.main:app", host=DEFAULT_API_HOST, port=DEFAULT_API_PORT, reload=True)
