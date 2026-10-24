@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -13,7 +13,7 @@ class HealthResponse(BaseModel):
 
 
 class PredictRequest(BaseModel):
-    comment: str
+    comment: str = Field(..., min_length=1, max_length=5000, description="Comment text to analyze")
 
 
 class PredictResponse(BaseModel):

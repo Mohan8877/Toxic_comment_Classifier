@@ -1,25 +1,36 @@
 # Toxic Comment Classifier
 
-Production-oriented toxic comment classification system built with a Bi-LSTM deep learning model, FastAPI backend, SQLAlchemy persistence, and a Streamlit moderation UI.
+Production-oriented toxic comment classification system built with a DistilBERT-based multi-label moderation pipeline, FastAPI backend, SQLAlchemy persistence, and a Streamlit moderation UI.
 
 ## Architecture overview
 
 - API layer: FastAPI service exposing `/health` and `/predict` endpoints.
-- ML layer: Bi-LSTM model for six toxicity labels: toxic, severe_toxic, obscene, threat, insult, identity_hate.
+- ML layer: DistilBERT multi-label classifier for six toxicity labels: toxic, severe_toxic, obscene, threat, insult, identity_hate.
 - Persistence layer: SQLAlchemy models for moderation records and predictions.
 - Frontend layer: Streamlit dashboard for live inference and human moderation review.
 - Deployment layer: Docker-ready, containerized service architecture with environment-based configuration.
 
+## Model status
+
+The active runtime checkpoint is the tuned local model located at:
+
+- `models/distilbert_experiments/exp_v1_tuned/`
+
+This checkpoint has been validated locally for loading and six-label inference. The original debug checkpoint remains preserved at:
+
+- `models/distilbert_experiments/exp_v0/`
+
+This is an experimental local checkpoint and should not be considered production-ready without additional validation and deployment review.
+
 ## Features
 
-- Deep learning classifier trained on comment text
-- Probability output across six toxicity categories
-- Deterministic moderation action based on score thresholds
-- Optional API key protection for secure production deployment
+- Multi-label toxicity probability output across six categories
+- Probabilistic moderation decisions using the documented threshold logic
+- Optional API key protection for secure local deployment
 - Health check endpoint and production logging
 - SQLAlchemy model persistence for auditability
-- Docker configuration for containerized deployment
-- Automated test coverage for API behaviors
+- Streamlit frontend for local inspection of prediction outputs
+- Automated test coverage for API and integration behavior
 
 ## Project layout
 
@@ -42,8 +53,14 @@ src/
   preprocessing.py
   tokenizer.py
   train.py
+models/
+  distilbert_experiments/
+    exp_v0/
+  distilbert_model/
+  distilbert_tokenizer/
 tests/
   test_api.py
+  test_inference.py
   test_model.py
 Dockerfile
 requirements.txt
@@ -67,25 +84,25 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-3. Train the model:
-
-```bash
-python -m src.train --epochs 5 --batch-size 32
-```
-
-4. Run the API:
+3. Start the API:
 
 ```bash
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-5. Run the frontend:
+4. Run the frontend:
 
 ```bash
 streamlit run frontend/app.py
 ```
 
-## Production API usage
+5. Run the test suite:
+
+```bash
+pytest -q
+```
+
+## API usage
 
 ### Health check
 
@@ -109,12 +126,14 @@ If `API_KEY` is configured, include:
 
 ## Docker
 
-Build and run with Docker:
+The repository includes a Dockerfile, but Docker was not verified in this environment. The current local runtime configuration is:
 
 ```bash
 docker build -t toxic-comment-classifier .
 docker run -p 8000:8000 --env-file .env toxic-comment-classifier
 ```
+
+This should be treated as a local deployment template, not as a verified build result for this host.
 
 ## Testing
 
@@ -133,15 +152,8 @@ pytest -q
 
 - API service runs behind a reverse proxy / load balancer in production.
 - Streamlit frontend is deployed as a separate web client or embedded dashboard.
-- Model artifacts are stored in `models/` and mounted as persistent volumes if used in production.
-- Database can be switched from SQLite for local development to PostgreSQL in production by setting `DATABASE_URL`.
-
-## CI/CD recommendations
-
-- Run `pytest` on every PR.
-- Build Docker image in CI and scan for vulnerabilities.
-- Deploy tagged image to a container registry and rollout with versioned image tags.
-- Use health endpoints and a staged rollout strategy for production reliability.
+- Model artifacts are stored under `models/` and should be versioned and mounted as persistent volumes when used in deployment.
+- Database can remain SQLite for local development or be switched to PostgreSQL for production by setting `DATABASE_URL`.
 
 ## Observability
 
@@ -149,3 +161,4 @@ pytest -q
 - `/health` endpoint supports health probes.
 - Prediction requests are logged and persisted to the database for auditability.
 - Metrics for uptime and moderation decisions can be integrated with Prometheus or a monitoring stack.
+streamlit run yourscript.py

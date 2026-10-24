@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 MODELS_DIR = BASE_DIR / "models"
 MODEL_EXPERIMENTS_DIR = BASE_DIR / "models" / "distilbert_experiments"
 
-DEFAULT_EXPERIMENT_DIR = MODEL_EXPERIMENTS_DIR / "exp_v0"
+DEFAULT_EXPERIMENT_DIR = MODEL_EXPERIMENTS_DIR / "exp_v1_tuned"
 MODEL_PATH = os.getenv("MODEL_PATH", str(DEFAULT_EXPERIMENT_DIR))
 TOKENIZER_PATH = os.getenv("TOKENIZER_PATH", str(DEFAULT_EXPERIMENT_DIR))
 
