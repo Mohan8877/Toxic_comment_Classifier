@@ -1,0 +1,47 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend-base
+    container_name: toxic-backend
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - .env
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      DATABASE_URL: sqlite:////app/data/toxicity.db
+      MODEL_PATH: /app/models/distilbert_experiments/exp_v1_tuned
+      TOKENIZER_PATH: /app/models/distilbert_experiments/exp_v1_tuned
+      ALLOWED_ORIGINS: "*"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./toxicity.db:/app/data/toxicity.db
+      - ./models/distilbert_experiments/exp_v1_tuned:/app/models/distilbert_experiments/exp_v1_tuned:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read(); print('ok')"]
+      interval: 15s
+      timeout: 20s
+      retries: 10
+      start_period: 45s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-base
+    container_name: toxic-frontend
+    command: streamlit run frontend/app.py --server.address 0.0.0.0 --server.port 8501
+    env_file:
+      - .env
+    environment:
+      API_URL: http://backend:8000
+    ports:
+      - "127.0.0.1:8501:8501"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

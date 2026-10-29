@@ -1,0 +1,35 @@
+.git/
+.gitignore
+.github/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+.env
+.env.*
+!.env.example
+*.log
+*.sqlite
+*.sqlite3
+*.db
+.DS_Store
+coverage/
+htmlcov/
+.tox/
+.mypy_cache/
+.pyright/
+raw/
+processed/
+notebooks/
+kaggle_output/
+serverless/
+.tmp/
+.temp/
+backup/
+**/.ipynb_checkpoints/
+# Keep the model checkpoint available for runtime inference
+# (do not exclude the tuned model directory)

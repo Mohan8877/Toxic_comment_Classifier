@@ -4,6 +4,8 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+.env.*
+!.env.example
 .venv/
 venv/
 
@@ -15,6 +17,11 @@ data/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+
+# SQLite / database
+toxicity.db
+*.sqlite
+*.sqlite3
 
 # OS
 .DS_Store

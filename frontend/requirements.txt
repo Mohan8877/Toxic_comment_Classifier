@@ -1,0 +1,6 @@
+streamlit==1.40.0
+requests==2.32.3
+numpy==1.26.4
+torch==2.6.0
+transformers==4.47.1
+sentencepiece==0.2.0
